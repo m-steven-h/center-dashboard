@@ -1,11 +1,10 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:window_manager/window_manager.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:window_manager/window_manager.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
-// تعريف الألوان الأساسية للسنتر
 const Color kPrimary = Color(0xFF525aff);
 const Color kPrimaryDark = Color(0xFF4F46E5);
 const Color kPrimaryLight = Color(0xFF818CF8);
@@ -20,6 +19,118 @@ const Color kCardBg = Color(0xFFFFFFFF);
 const Color kBgGradientStart = Color(0xFFF1F5F9);
 const Color kBgGradientEnd = Color(0xFFE2E8F0);
 
+// System License Constants
+const String SYSTEM_EXPIRY_DATE = "2026-06-12";
+const String LICENSE_KEY = "MOSTAFA-CENTER-2026-PERMANENT";
+
+// License Functions
+bool isSystemExpired() {
+  final expiryDate = DateTime.parse(SYSTEM_EXPIRY_DATE);
+  final now = DateTime.now();
+  return now.isAfter(expiryDate);
+}
+
+Future<bool> isLicenseActivated() async {
+  final prefs = await SharedPreferences.getInstance();
+  return prefs.getBool('license_activated') ?? false;
+}
+
+Future<void> activateLicense() async {
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.setBool('license_activated', true);
+}
+
+// License Dialog Widget
+class LicenseDialog extends StatefulWidget {
+  const LicenseDialog({Key? key}) : super(key: key);
+
+  @override
+  State<LicenseDialog> createState() => _LicenseDialogState();
+}
+
+class _LicenseDialogState extends State<LicenseDialog> {
+  final TextEditingController _codeController = TextEditingController();
+  String _errorMessage = '';
+
+  @override
+  Widget build(BuildContext context) {
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                gradient:
+                    const LinearGradient(colors: [kPrimary, kPrimaryLight]),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(Icons.vpn_key, color: kWhite),
+            ),
+            const SizedBox(width: 12),
+            const Text('تفعيل النظام',
+                style: TextStyle(fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'انتهت فترة التجربة\nيرجى إدخال كود التفعيل للمتابعة',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 14, color: kGray),
+            ),
+            const SizedBox(height: 20),
+            TextField(
+              controller: _codeController,
+              decoration: InputDecoration(
+                hintText: 'أدخل كود التفعيل',
+                border:
+                    OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                errorText: _errorMessage.isEmpty ? null : _errorMessage,
+                prefixIcon: const Icon(Icons.key, color: kPrimary),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                Navigator.of(context).pop();
+              });
+            },
+            child: const Text('إغلاق', style: TextStyle(color: kGray)),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (_codeController.text.trim() == LICENSE_KEY) {
+                await activateLicense();
+                if (context.mounted) {
+                  Navigator.pop(context);
+                  if (context.mounted) {
+                    Navigator.of(context).pushAndRemoveUntil(
+                      MaterialPageRoute(
+                          builder: (context) => const MostafaCenterApp()),
+                      (route) => false,
+                    );
+                  }
+                }
+              } else {
+                setState(() => _errorMessage = 'كود التفعيل غير صحيح');
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: kPrimary),
+            child: const Text('تفعيل'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -31,7 +142,6 @@ void main() async {
   );
 
   windowManager.waitUntilReadyToShow(windowOptions, () async {
-    // يفتح Fullscreen تلقائي
     await windowManager.setFullScreen(true);
 
     await windowManager.show();
@@ -43,7 +153,6 @@ void main() async {
 
 class MostafaCenterApp extends StatelessWidget {
   const MostafaCenterApp({Key? key}) : super(key: key);
-
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -114,10 +223,7 @@ class MostafaCenterApp extends StatelessWidget {
         focusNode: FocusNode(),
         autofocus: true,
         onKeyEvent: (event) async {
-          if (event.logicalKey == LogicalKeyboardKey.f11) {
-            final isFull = await windowManager.isFullScreen();
-            await windowManager.setFullScreen(!isFull);
-          }
+          if (event.logicalKey == LogicalKeyboardKey.f11) {}
         },
         child: const Directionality(
           textDirection: TextDirection.rtl,
@@ -128,29 +234,22 @@ class MostafaCenterApp extends StatelessWidget {
   }
 }
 
-// =========================================================================
-// --- DATA MODELS ---
-// =========================================================================
-
 class Teacher {
   final String id;
   final String name;
   final String subject;
   final String phone;
-
   Teacher(
       {required this.id,
       required this.name,
       required this.subject,
       required this.phone});
-
   Map<String, dynamic> toJson() => {
         'id': id,
         'name': name,
         'subject': subject,
         'phone': phone,
       };
-
   factory Teacher.fromJson(Map<String, dynamic> json) => Teacher(
         id: json['id'],
         name: json['name'],
@@ -166,7 +265,6 @@ class Student {
   final String phone;
   final String parentPhone;
   final List<String> enrolledSessions;
-
   Student({
     required this.id,
     required this.name,
@@ -175,7 +273,6 @@ class Student {
     required this.parentPhone,
     required this.enrolledSessions,
   });
-
   Map<String, dynamic> toJson() => {
         'id': id,
         'name': name,
@@ -184,7 +281,6 @@ class Student {
         'parentPhone': parentPhone,
         'enrolledSessions': enrolledSessions,
       };
-
   factory Student.fromJson(Map<String, dynamic> json) => Student(
         id: json['id'],
         name: json['name'],
@@ -203,7 +299,6 @@ class Session {
   final String time;
   final String grade;
   final double price;
-
   Session({
     required this.id,
     required this.teacherId,
@@ -213,7 +308,6 @@ class Session {
     required this.grade,
     required this.price,
   });
-
   Map<String, dynamic> toJson() => {
         'id': id,
         'teacherId': teacherId,
@@ -223,7 +317,6 @@ class Session {
         'grade': grade,
         'price': price,
       };
-
   factory Session.fromJson(Map<String, dynamic> json) => Session(
         id: json['id'],
         teacherId: json['teacherId'],
@@ -242,7 +335,6 @@ class AttendanceRecord {
   String status;
   double debt;
   final String customReason;
-
   AttendanceRecord({
     required this.date,
     required this.sessionId,
@@ -251,7 +343,6 @@ class AttendanceRecord {
     required this.debt,
     this.customReason = '',
   });
-
   Map<String, dynamic> toJson() => {
         'date': date,
         'sessionId': sessionId,
@@ -260,7 +351,6 @@ class AttendanceRecord {
         'debt': debt,
         'customReason': customReason,
       };
-
   factory AttendanceRecord.fromJson(Map<String, dynamic> json) =>
       AttendanceRecord(
         date: json['date'],
@@ -274,7 +364,6 @@ class AttendanceRecord {
 
 class MainNavigationScreen extends StatefulWidget {
   const MainNavigationScreen({Key? key}) : super(key: key);
-
   @override
   State<MainNavigationScreen> createState() => _MainNavigationScreenState();
 }
@@ -282,21 +371,15 @@ class MainNavigationScreen extends StatefulWidget {
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
   String _currentTab = 'dashboard';
   bool _isLoading = true;
-
   List<Teacher> _teachers = [];
   List<Student> _students = [];
   List<Session> _sessions = [];
   List<AttendanceRecord> _attendance = [];
-
   String _teacherSearchQuery = "";
   String _studentSearchQuery = "";
-
   String? _selectedAttendanceSessionId;
-
   DateTime _selectedReviewDate = DateTime.now();
-
   final Set<String> _lockedSessionsToday = {};
-
   final List<String> _grades = [
     "الرابع الابتدائي",
     "الخامس الابتدائي",
@@ -308,7 +391,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     "الثاني الثانوي",
     "الثالث الثانوي"
   ];
-
   final Map<String, String> _weekdaysAr = {
     'Saturday': 'السبت',
     'Sunday': 'الأحد',
@@ -318,7 +400,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     'Thursday': 'الخميس',
     'Friday': 'الجمعة',
   };
-
   final List<String> _weekdaysEn = [
     'Saturday',
     'Sunday',
@@ -332,7 +413,22 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   @override
   void initState() {
     super.initState();
-    _loadStateFromPrefs();
+    _loadStateFromPrefs().then((_) {
+      _checkLicenseAndShowDialog();
+    });
+  }
+
+  Future<void> _checkLicenseAndShowDialog() async {
+    final isActivated = await isLicenseActivated();
+    if (!isActivated && isSystemExpired()) {
+      if (mounted) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => const LicenseDialog(),
+        );
+      }
+    }
   }
 
   Future<void> _saveStateToPrefs() async {
@@ -357,7 +453,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     final String? sessionsRaw = prefs.getString('sessions');
     final String? attendanceRaw = prefs.getString('attendance');
     final String? lockedRaw = prefs.getString('locked_sessions');
-
     setState(() {
       if (teachersRaw != null) {
         _teachers = (jsonDecode(teachersRaw) as List)
@@ -366,7 +461,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       } else {
         _teachers = [];
       }
-
       if (studentsRaw != null) {
         _students = (jsonDecode(studentsRaw) as List)
             .map((e) => Student.fromJson(e))
@@ -374,7 +468,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       } else {
         _students = [];
       }
-
       if (sessionsRaw != null) {
         _sessions = (jsonDecode(sessionsRaw) as List)
             .map((e) => Session.fromJson(e))
@@ -382,7 +475,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       } else {
         _sessions = [];
       }
-
       if (attendanceRaw != null) {
         _attendance = (jsonDecode(attendanceRaw) as List)
             .map((e) => AttendanceRecord.fromJson(e))
@@ -390,13 +482,11 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       } else {
         _attendance = [];
       }
-
       if (lockedRaw != null) {
         final decoded = jsonDecode(lockedRaw) as List;
         _lockedSessionsToday.clear();
         _lockedSessionsToday.addAll(decoded.cast<String>());
       }
-
       _isLoading = false;
     });
   }
@@ -476,7 +566,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         body: Center(child: CircularProgressIndicator()),
       );
     }
-
     return Scaffold(
       body: Container(
         decoration: BoxDecoration(
@@ -707,10 +796,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     }
   }
 
-  // =========================================================================
-  // TAB 1: DASHBOARD
-  // =========================================================================
-
   Widget _buildDashboardTab() {
     return SingleChildScrollView(
       child: Column(
@@ -765,7 +850,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         'color': kDanger
       },
     ];
-
     return Row(
       children: stats.map((stat) {
         return Expanded(
@@ -829,7 +913,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   Widget _buildTodaySessionsCard() {
     final String todayEng = _getCurrentDayEnglish();
     final todaySessions = _sessions.where((s) => s.day == todayEng).toList();
-
     return Card(
       elevation: 4,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
@@ -870,7 +953,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                   child: Column(
                     children: [
                       Icon(Icons.coffee, size: 80, color: kGray),
-                      const SizedBox(height: 20),
+                      SizedBox(height: 20),
                       Text('لا توجد حصص مجدولة لهذا اليوم',
                           style: TextStyle(fontSize: 16, color: kGray)),
                     ],
@@ -893,7 +976,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                           s.grade == session.grade ||
                           s.enrolledSessions.contains(session.id))
                       .length;
-
                   return Container(
                     margin: const EdgeInsets.only(bottom: 20),
                     padding: const EdgeInsets.all(24),
@@ -1084,17 +1166,12 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     );
   }
 
-  // =========================================================================
-  // TEACHERS TAB
-  // =========================================================================
-
   Widget _buildTeachersTab() {
     final filtered = _teachers.where((t) {
       final q = _teacherSearchQuery.toLowerCase();
       return t.name.toLowerCase().contains(q) ||
           t.subject.toLowerCase().contains(q);
     }).toList();
-
     return Column(
       children: [
         _buildPageHeader(
@@ -1130,7 +1207,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                       final sessCount = _sessions
                           .where((s) => s.teacherId == teacher.id)
                           .length;
-
                       return InkWell(
                         onTap: () => _openTeacherProfileDialog(teacher),
                         borderRadius: BorderRadius.circular(12),
@@ -1261,10 +1337,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       ),
     );
   }
-
-  // =========================================================================
-  // STUDENTS TAB
-  // =========================================================================
 
   Widget _buildStudentsTab() {
     final filtered = _students.where((s) {
@@ -1468,10 +1540,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     );
   }
 
-  // =========================================================================
-  // SESSIONS TAB
-  // =========================================================================
-
   Widget _buildSessionsTab() {
     return Column(
       children: [
@@ -1554,7 +1622,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         ),
       );
     }
-
     return ListView.builder(
       padding: const EdgeInsets.all(12),
       itemCount: daySessions.length,
@@ -1654,16 +1721,10 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     );
   }
 
-  // =========================================================================
-  // ATTENDANCE TAB
-  // =========================================================================
-
   List<AttendanceRecord> _tempAttendanceList = [];
-
   Widget _buildAttendanceTab() {
     final todayEng = _getCurrentDayEnglish();
     final todaySessions = _sessions.where((s) => s.day == todayEng).toList();
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -1766,7 +1827,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                             (s) => s.id == _selectedAttendanceSessionId);
                         final isLocked = _lockedSessionsToday
                             .contains(_selectedAttendanceSessionId);
-
                         return Container(
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           child: Row(
@@ -1944,11 +2004,9 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     final targetStudents = _students.where((s) {
       return s.enrolledSessions.contains(session.id);
     }).toList();
-
     final existingRecords = _attendance
         .where((a) => a.sessionId == session.id && a.date == todayStr)
         .toList();
-
     setState(() {
       _tempAttendanceList = targetStudents.map((student) {
         final existing = existingRecords.firstWhere(
@@ -1973,7 +2031,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         orElse: () => Teacher(id: '', name: 'مدرس', subject: '', phone: ''));
     final isLocked =
         _lockedSessionsToday.contains(_selectedAttendanceSessionId);
-
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -2042,7 +2099,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   Widget _buildAttendanceSheetFooter() {
     final isLocked =
         _lockedSessionsToday.contains(_selectedAttendanceSessionId);
-
     if (isLocked) {
       return Container(
         padding: const EdgeInsets.all(16),
@@ -2068,7 +2124,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                 setState(() {
                   _lockedSessionsToday.remove(_selectedAttendanceSessionId!);
                   _saveStateToPrefs();
-                  // إخفاء الزر أو تعطيله بعد الفتح
                 });
                 _showSuccessSnackBar('تم فتح الحصة بنجاح (يمكنك التعديل الآن)');
               },
@@ -2080,7 +2135,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         ),
       );
     }
-
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: const BoxDecoration(
@@ -2103,20 +2157,31 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     );
   }
 
-  // =========================================================================
-  // ATTENDANCE REVIEW TAB
-  // =========================================================================
-
   Widget _buildAttendanceReviewTab() {
     final String dateString =
         "${_selectedReviewDate.year}-${_selectedReviewDate.month.toString().padLeft(2, '0')}-${_selectedReviewDate.day.toString().padLeft(2, '0')}";
     final recordsForDate =
         _attendance.where((a) => a.date == dateString).toList();
 
+    // فصل السجلات إلى حضور ومديونيات عادية ومديونيات مسددة
     final Map<String, List<AttendanceRecord>> grouped = {};
+    final Map<String, List<AttendanceRecord>> groupedPaidDebts = {};
+
     for (var r in recordsForDate) {
-      if (!grouped.containsKey(r.sessionId)) grouped[r.sessionId] = [];
-      grouped[r.sessionId]!.add(r);
+      if (r.sessionId == 'custom') {
+        // للمديونيات العادية والمسددة
+        if (r.status == 'paid') {
+          if (!groupedPaidDebts.containsKey(r.sessionId))
+            groupedPaidDebts[r.sessionId] = [];
+          groupedPaidDebts[r.sessionId]!.add(r);
+        } else {
+          if (!grouped.containsKey(r.sessionId)) grouped[r.sessionId] = [];
+          grouped[r.sessionId]!.add(r);
+        }
+      } else {
+        if (!grouped.containsKey(r.sessionId)) grouped[r.sessionId] = [];
+        grouped[r.sessionId]!.add(r);
+      }
     }
 
     return Column(
@@ -2186,158 +2251,301 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         ),
         const SizedBox(height: 24),
         Expanded(
-          child: grouped.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.calendar_view_day,
-                          size: 64, color: kGray.withOpacity(0.3)),
-                      const SizedBox(height: 16),
-                      Text('لا توجد سجلات حضور في هذا التاريخ',
-                          style: TextStyle(color: kGray)),
-                    ],
-                  ),
-                )
-              : ListView(
-                  children: grouped.entries.map((entry) {
-                    final String sessId = entry.key;
-                    final List<AttendanceRecord> list = entry.value;
+          child: ListView(
+            children: [
+              // عرض سجلات الحضور والمديونيات العادية
+              if (grouped.isNotEmpty) ...[
+                const Text('سجلات الحضور والمديونيات',
+                    style:
+                        TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                const SizedBox(height: 12),
+                ...grouped.entries.map((entry) {
+                  final String sessId = entry.key;
+                  final List<AttendanceRecord> list = entry.value;
 
-                    String title = "مديونيات خارجية";
-                    String subtitle = "تسجيل مبيعات ملازم ومراجعات خارجية";
+                  String title = "مديونيات خارجية";
+                  String subtitle = "تسجيل مبيعات ملازم ومراجعات خارجية";
 
-                    if (sessId != 'custom') {
-                      final session = _sessions.firstWhere(
-                          (s) => s.id == sessId,
-                          orElse: () => Session(
-                              id: '',
-                              name: 'حصة محذوفة',
-                              teacherId: '',
-                              day: '',
-                              time: '',
-                              grade: '',
-                              price: 0));
-                      final teacher = _teachers.firstWhere(
-                          (t) => t.id == session.teacherId,
-                          orElse: () => Teacher(
-                              id: '',
-                              name: 'مدرس مجهول',
-                              subject: '',
-                              phone: ''));
-                      title = "حصة: ${session.name}";
-                      subtitle =
-                          "${teacher.subject} - ${teacher.name} | الصف: ${session.grade} | الموعد: ${session.time}";
-                    }
+                  if (sessId != 'custom') {
+                    final session = _sessions.firstWhere((s) => s.id == sessId,
+                        orElse: () => Session(
+                            id: '',
+                            name: 'حصة محذوفة',
+                            teacherId: '',
+                            day: '',
+                            time: '',
+                            grade: '',
+                            price: 0));
+                    final teacher = _teachers.firstWhere(
+                        (t) => t.id == session.teacherId,
+                        orElse: () => Teacher(
+                            id: '',
+                            name: 'مدرس مجهول',
+                            subject: '',
+                            phone: ''));
+                    title = "حصة: ${session.name}";
+                    subtitle =
+                        "${teacher.subject} - ${teacher.name} | الصف: ${session.grade} | الموعد: ${session.time}";
+                  }
+                  final present =
+                      list.where((r) => r.status == 'present').length;
+                  final absent = list.where((r) => r.status == 'absent').length;
+                  final debt = list.where((r) => r.status == 'debt').length;
 
-                    final present =
-                        list.where((r) => r.status == 'present').length;
-                    final absent =
-                        list.where((r) => r.status == 'absent').length;
-                    final debt = list.where((r) => r.status == 'debt').length;
-
-                    return Card(
-                      elevation: 2,
-                      margin: const EdgeInsets.only(bottom: 16),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16)),
-                      child: ExpansionTile(
-                        title: Text(title,
-                            style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
-                                color: kPrimary)),
-                        subtitle: Text(subtitle,
-                            style: const TextStyle(color: kGray, fontSize: 11)),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            _buildReviewCountBadge('حاضر', present, kSuccess),
-                            const SizedBox(width: 4),
-                            _buildReviewCountBadge('غائب', absent, kDanger),
-                            const SizedBox(width: 4),
-                            _buildReviewCountBadge('مديونية', debt, kWarning),
-                            const SizedBox(width: 12),
-                            const Icon(Icons.arrow_drop_down, color: kGray),
-                          ],
-                        ),
+                  return Card(
+                    elevation: 2,
+                    margin: const EdgeInsets.only(bottom: 16),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16)),
+                    child: ExpansionTile(
+                      title: Text(title,
+                          style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                              color: kPrimary)),
+                      subtitle: Text(subtitle,
+                          style: const TextStyle(color: kGray, fontSize: 11)),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          Container(
-                            decoration: BoxDecoration(
-                              color: kLight,
-                              borderRadius: const BorderRadius.vertical(
-                                  bottom: Radius.circular(16)),
-                            ),
-                            child: ListView.separated(
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              itemCount: list.length,
-                              separatorBuilder: (context, i) => Divider(
-                                  height: 1, color: kGray.withOpacity(0.1)),
-                              itemBuilder: (context, i) {
-                                final rec = list[i];
-                                final student = _students.firstWhere(
-                                    (s) => s.id == rec.studentId,
-                                    orElse: () => Student(
-                                        id: '',
-                                        name: 'طالب محذوف',
-                                        grade: '',
-                                        phone: '',
-                                        parentPhone: '',
-                                        enrolledSessions: []));
-                                return Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 20, vertical: 14),
-                                  child: Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Row(
-                                        children: [
-                                          Container(
-                                            width: 28,
-                                            height: 28,
-                                            decoration: BoxDecoration(
-                                              color: kPrimary.withOpacity(0.1),
-                                              borderRadius:
-                                                  BorderRadius.circular(8),
-                                            ),
-                                            child: Center(
-                                                child: Text('${i + 1}',
-                                                    style: const TextStyle(
-                                                        fontSize: 11,
-                                                        fontWeight:
-                                                            FontWeight.bold,
-                                                        color: kPrimary))),
-                                          ),
-                                          const SizedBox(width: 12),
-                                          Text(student.name,
-                                              style: const TextStyle(
-                                                  fontWeight: FontWeight.bold)),
-                                        ],
-                                      ),
-                                      _buildStatusBadge(rec.status),
-                                      Text(
-                                        rec.status == 'debt'
-                                            ? '${rec.debt} ج.م'
-                                            : '-',
-                                        style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            color: rec.status == 'debt'
-                                                ? kDanger
-                                                : kGray),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              },
-                            ),
-                          )
+                          _buildReviewCountBadge('حاضر', present, kSuccess),
+                          const SizedBox(width: 4),
+                          _buildReviewCountBadge('غائب', absent, kDanger),
+                          const SizedBox(width: 4),
+                          _buildReviewCountBadge('مديونية', debt, kWarning),
+                          const SizedBox(width: 12),
+                          const Icon(Icons.arrow_drop_down, color: kGray),
                         ],
                       ),
-                    );
-                  }).toList(),
+                      children: [
+                        Container(
+                          decoration: BoxDecoration(
+                            color: kLight,
+                            borderRadius: const BorderRadius.vertical(
+                                bottom: Radius.circular(16)),
+                          ),
+                          child: ListView.separated(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: list.length,
+                            separatorBuilder: (context, i) => Divider(
+                                height: 1, color: kGray.withOpacity(0.1)),
+                            itemBuilder: (context, i) {
+                              final rec = list[i];
+                              final student = _students.firstWhere(
+                                  (s) => s.id == rec.studentId,
+                                  orElse: () => Student(
+                                      id: '',
+                                      name: 'طالب محذوف',
+                                      grade: '',
+                                      phone: '',
+                                      parentPhone: '',
+                                      enrolledSessions: []));
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 20, vertical: 14),
+                                child: Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Container(
+                                          width: 28,
+                                          height: 28,
+                                          decoration: BoxDecoration(
+                                            color: kPrimary.withOpacity(0.1),
+                                            borderRadius:
+                                                BorderRadius.circular(8),
+                                          ),
+                                          child: Center(
+                                              child: Text('${i + 1}',
+                                                  style: const TextStyle(
+                                                      fontSize: 11,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                      color: kPrimary))),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Text(student.name,
+                                            style: const TextStyle(
+                                                fontWeight: FontWeight.bold)),
+                                      ],
+                                    ),
+                                    _buildStatusBadge(rec.status),
+                                    Text(
+                                      rec.status == 'debt'
+                                          ? '${rec.debt} ج.م'
+                                          : '-',
+                                      style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          color: rec.status == 'debt'
+                                              ? kDanger
+                                              : kGray),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                        )
+                      ],
+                    ),
+                  );
+                }),
+              ],
+
+              // عرض المديونيات المسددة بشكل منفصل
+              if (groupedPaidDebts.isNotEmpty) ...[
+                const SizedBox(height: 24),
+                const Text('المديونيات المسددة',
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: kSuccess)),
+                const SizedBox(height: 12),
+                ...groupedPaidDebts.entries.map((entry) {
+                  final List<AttendanceRecord> list = entry.value;
+
+                  return Card(
+                    elevation: 2,
+                    margin: const EdgeInsets.only(bottom: 16),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16)),
+                    color: kSuccess.withOpacity(0.05),
+                    child: ExpansionTile(
+                      title: const Text('مدفوعات خارجية',
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                              color: kSuccess)),
+                      subtitle: const Text('مديونيات تم تسديدها بالكامل',
+                          style: TextStyle(color: kSuccess, fontSize: 11)),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _buildReviewCountBadge(
+                              'مسددة', list.length, kSuccess),
+                          const SizedBox(width: 12),
+                          const Icon(Icons.arrow_drop_down, color: kGray),
+                        ],
+                      ),
+                      children: [
+                        Container(
+                          decoration: BoxDecoration(
+                            color: kLight,
+                            borderRadius: const BorderRadius.vertical(
+                                bottom: Radius.circular(16)),
+                          ),
+                          child: ListView.separated(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: list.length,
+                            separatorBuilder: (context, i) => Divider(
+                                height: 1, color: kGray.withOpacity(0.1)),
+                            itemBuilder: (context, i) {
+                              final rec = list[i];
+                              final student = _students.firstWhere(
+                                  (s) => s.id == rec.studentId,
+                                  orElse: () => Student(
+                                      id: '',
+                                      name: 'طالب محذوف',
+                                      grade: '',
+                                      phone: '',
+                                      parentPhone: '',
+                                      enrolledSessions: []));
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 20, vertical: 14),
+                                child: Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Container(
+                                          width: 28,
+                                          height: 28,
+                                          decoration: BoxDecoration(
+                                            color: kSuccess.withOpacity(0.1),
+                                            borderRadius:
+                                                BorderRadius.circular(8),
+                                          ),
+                                          child: Center(
+                                              child: Text('${i + 1}',
+                                                  style: const TextStyle(
+                                                      fontSize: 11,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                      color: kSuccess))),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(student.name,
+                                                style: const TextStyle(
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 13)),
+                                            if (rec.customReason.isNotEmpty)
+                                              Text(rec.customReason,
+                                                  style: const TextStyle(
+                                                      fontSize: 10,
+                                                      color: kGray)),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 12, vertical: 6),
+                                      decoration: BoxDecoration(
+                                        color: kSuccess.withOpacity(0.15),
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const Icon(Icons.check_circle,
+                                              size: 14, color: kSuccess),
+                                          const SizedBox(width: 4),
+                                          Text('تم السداد',
+                                              style: TextStyle(
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: kSuccess)),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                        )
+                      ],
+                    ),
+                  );
+                }),
+              ],
+
+              if (grouped.isEmpty && groupedPaidDebts.isEmpty)
+                const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(40),
+                    child: Column(
+                      children: [
+                        Icon(Icons.calendar_view_day, size: 64, color: kGray),
+                        SizedBox(height: 16),
+                        Text('لا توجد سجلات حضور في هذا التاريخ',
+                            style: TextStyle(color: kGray)),
+                      ],
+                    ),
+                  ),
                 ),
+            ],
+          ),
         ),
       ],
     );
@@ -2369,6 +2577,9 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     } else if (status == 'debt') {
       bg = kWarning;
       label = 'مديونية';
+    } else if (status == 'paid') {
+      bg = kSuccess;
+      label = 'مسددة';
     }
 
     return Container(
@@ -2382,10 +2593,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
               TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: bg)),
     );
   }
-
-  // =========================================================================
-  // HELPER WIDGETS
-  // =========================================================================
 
   Widget _buildPageHeader({
     required String title,
@@ -2475,10 +2682,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       ),
     );
   }
-
-  // =========================================================================
-  // DIALOGS & ACTIONS
-  // =========================================================================
 
   void _openAddTeacherDialog([Teacher? teacher]) {
     final isEdit = teacher != null;
@@ -2726,7 +2929,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                             TextField(
                               controller: nameController,
                               decoration: const InputDecoration(
-                                  labelText: 'اسم الطالب رباعي',
+                                  labelText: 'اسم الطالب ثلاثي',
                                   prefixIcon: Icon(Icons.badge_outlined)),
                             ),
                             const SizedBox(height: 16),
@@ -3074,534 +3277,1098 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   void _openStudentProfileDialog(Student student) {
     final customDebtReasonController = TextEditingController();
     final customDebtAmountController = TextEditingController();
-    final quickSettleController = TextEditingController();
 
     showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (context) {
         return Directionality(
           textDirection: TextDirection.rtl,
           child: StatefulBuilder(
             builder: (context, setProfileState) {
               final studentTotalDebt = getStudentTotalDebts(student.id);
-              final studentAttendanceRecords =
-                  _attendance.where((a) => a.studentId == student.id).toList();
+
+              // سجلات الحضور العادية
+              final attendanceRecords = _attendance
+                  .where((a) =>
+                      a.studentId == student.id && a.sessionId != 'custom')
+                  .toList();
+
+              // المديونيات غير المسددة (من الحصص والمديونيات الخارجية)
+              final debtRecords = _attendance
+                  .where((a) =>
+                      a.studentId == student.id &&
+                      a.sessionId != 'custom' &&
+                      a.status == 'debt')
+                  .toList();
+
+              // المديونيات المسددة
+              final paidRecords = _attendance
+                  .where((a) =>
+                      a.studentId == student.id &&
+                      a.sessionId != 'custom' &&
+                      a.status == 'paid')
+                  .toList();
+
+              // المديونيات الخارجية غير المسددة
+              final customDebtRecords = _attendance
+                  .where((a) =>
+                      a.studentId == student.id &&
+                      a.sessionId == 'custom' &&
+                      a.status == 'debt')
+                  .toList();
+
+              // المديونيات الخارجية المسددة
+              final customPaidRecords = _attendance
+                  .where((a) =>
+                      a.studentId == student.id &&
+                      a.sessionId == 'custom' &&
+                      a.status == 'paid')
+                  .toList();
 
               return Dialog(
                 elevation: 8,
                 backgroundColor: Colors.transparent,
-                child: Container(
-                  width: 900,
-                  decoration: BoxDecoration(
-                    color: kWhite,
-                    borderRadius: BorderRadius.circular(28),
-                    boxShadow: [
-                      BoxShadow(
-                        color: kDark.withOpacity(0.2),
-                        blurRadius: 30,
-                        offset: const Offset(0, 10),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    double dialogWidth = constraints.maxWidth * 0.95;
+                    if (constraints.maxWidth > 1200) {
+                      dialogWidth = 1200;
+                    }
+                    return Container(
+                      width: dialogWidth,
+                      decoration: BoxDecoration(
+                        color: kWhite,
+                        borderRadius: BorderRadius.circular(28),
+                        boxShadow: [
+                          BoxShadow(
+                            color: kDark.withOpacity(0.2),
+                            blurRadius: 30,
+                            offset: const Offset(0, 10),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(24),
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                              colors: [kPrimary, kPrimaryDark]),
-                          borderRadius: const BorderRadius.only(
-                              topLeft: Radius.circular(28),
-                              topRight: Radius.circular(28)),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Row(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Header Section
+                          Container(
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                  colors: [kPrimary, kPrimaryDark]),
+                              borderRadius: const BorderRadius.only(
+                                  topLeft: Radius.circular(28),
+                                  topRight: Radius.circular(28)),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Container(
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(
-                                    color: kWhite.withOpacity(0.2),
-                                    borderRadius: BorderRadius.circular(20),
-                                  ),
-                                  child: const Icon(Icons.person,
-                                      color: kWhite, size: 40),
-                                ),
-                                const SizedBox(width: 16),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(student.name,
-                                        style: const TextStyle(
-                                            color: kWhite,
-                                            fontSize: 18,
-                                            fontWeight: FontWeight.bold)),
-                                    const SizedBox(height: 4),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 12, vertical: 4),
-                                      decoration: BoxDecoration(
-                                        color: kWhite.withOpacity(0.2),
-                                        borderRadius: BorderRadius.circular(20),
+                                Expanded(
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.all(12),
+                                        decoration: BoxDecoration(
+                                          color: kWhite.withOpacity(0.2),
+                                          borderRadius:
+                                              BorderRadius.circular(20),
+                                        ),
+                                        child: const Icon(Icons.person,
+                                            color: kWhite, size: 36),
                                       ),
-                                      child: Text('الصف: ${student.grade}',
-                                          style: const TextStyle(
-                                              color: kWhite, fontSize: 12)),
+                                      const SizedBox(width: 16),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(student.name,
+                                                style: const TextStyle(
+                                                    color: kWhite,
+                                                    fontSize: 18,
+                                                    fontWeight:
+                                                        FontWeight.bold),
+                                                overflow:
+                                                    TextOverflow.ellipsis),
+                                            const SizedBox(height: 6),
+                                            Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                      horizontal: 12,
+                                                      vertical: 4),
+                                              decoration: BoxDecoration(
+                                                color: kWhite.withOpacity(0.2),
+                                                borderRadius:
+                                                    BorderRadius.circular(20),
+                                              ),
+                                              child: Text(
+                                                  'الصف: ${student.grade}',
+                                                  style: const TextStyle(
+                                                      color: kWhite,
+                                                      fontSize: 12)),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                InkWell(
+                                  onTap: () => Navigator.pop(context),
+                                  child: Container(
+                                    padding: const EdgeInsets.all(10),
+                                    decoration: BoxDecoration(
+                                      color: kWhite.withOpacity(0.2),
+                                      borderRadius: BorderRadius.circular(12),
                                     ),
-                                  ],
+                                    child: const Icon(Icons.close,
+                                        color: kWhite, size: 22),
+                                  ),
                                 ),
                               ],
                             ),
-                            const SizedBox(width: 8),
-                          ],
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.all(24),
-                        child: SingleChildScrollView(
-                          child: Column(
-                            children: [
-                              Row(
+                          ),
+
+                          Padding(
+                            padding: const EdgeInsets.all(20),
+                            child: SingleChildScrollView(
+                              child: Column(
                                 children: [
-                                  _buildProfileCard(
-                                      'هاتف الطالب',
-                                      student.phone,
-                                      Icons.phone_android_outlined,
-                                      kPrimary),
-                                  const SizedBox(width: 16),
-                                  _buildProfileCard(
-                                      'هاتف ولي الأمر',
-                                      student.parentPhone,
-                                      Icons.phone_outlined,
-                                      kPrimary),
-                                  const SizedBox(width: 16),
-                                  _buildProfileCard(
-                                      'الحصص المسجل فيها',
-                                      '${student.enrolledSessions.length} حصة',
-                                      Icons.class_outlined,
-                                      kPrimary),
-                                ],
-                              ),
-                              const SizedBox(height: 24),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    flex: 2,
-                                    child: Container(
-                                      padding: const EdgeInsets.all(16),
-                                      decoration: BoxDecoration(
-                                        gradient: LinearGradient(
-                                          colors: [
-                                            kDanger.withOpacity(0.1),
-                                            kDanger.withOpacity(0.05)
+                                  // Info Cards Row
+                                  Row(
+                                    children: [
+                                      _buildProfileCard(
+                                          'هاتف الطالب',
+                                          student.phone,
+                                          Icons.phone_android_outlined,
+                                          kPrimary),
+                                      const SizedBox(width: 12),
+                                      _buildProfileCard(
+                                          'هاتف ولي الأمر',
+                                          student.parentPhone,
+                                          Icons.phone_outlined,
+                                          kPrimary),
+                                      const SizedBox(width: 12),
+                                      _buildProfileCard(
+                                          'إجمالي المديونيات',
+                                          '$studentTotalDebt ج.م',
+                                          Icons.monetization_on,
+                                          kDanger),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 24),
+
+                                  // ========== قسم السداد الجماعي ==========
+                                  Container(
+                                    padding: const EdgeInsets.all(20),
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        colors: [
+                                          kSuccess.withOpacity(0.1),
+                                          kSuccess.withOpacity(0.05)
+                                        ],
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                      ),
+                                      borderRadius: BorderRadius.circular(20),
+                                      border: Border.all(
+                                        color: kSuccess.withOpacity(0.3),
+                                        width: 1.5,
+                                      ),
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Container(
+                                              padding: const EdgeInsets.all(8),
+                                              decoration: BoxDecoration(
+                                                color:
+                                                    kSuccess.withOpacity(0.2),
+                                                borderRadius:
+                                                    BorderRadius.circular(12),
+                                              ),
+                                              child: const Icon(Icons.payment,
+                                                  color: kSuccess, size: 24),
+                                            ),
+                                            const SizedBox(width: 12),
+                                            const Text(
+                                              'سداد المديونيات',
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 16,
+                                                color: kSuccess,
+                                              ),
+                                            ),
                                           ],
                                         ),
-                                        borderRadius: BorderRadius.circular(16),
-                                        border: Border.all(
-                                            color: kDanger.withOpacity(0.2)),
-                                      ),
-                                      child: Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              const Text('إجمالي المديونيات',
-                                                  style: TextStyle(
-                                                      fontSize: 12,
-                                                      color: kDanger)),
-                                              const SizedBox(height: 8),
-                                              Text('$studentTotalDebt ج.م',
-                                                  style: const TextStyle(
-                                                      fontSize: 24,
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                      color: kDanger)),
-                                            ],
-                                          ),
-                                          Row(
-                                            children: [
-                                              SizedBox(
-                                                width: 90,
-                                                height: 42,
-                                                child: TextField(
-                                                  controller:
-                                                      quickSettleController,
-                                                  decoration: InputDecoration(
-                                                    border: OutlineInputBorder(
-                                                        borderRadius:
-                                                            BorderRadius
-                                                                .circular(10)),
-                                                    contentPadding:
-                                                        const EdgeInsets.all(8),
-                                                    hintText: 'المبلغ',
-                                                    hintStyle: const TextStyle(
-                                                        fontSize: 11),
+                                        const SizedBox(height: 16),
+                                        const Text(
+                                          'يمكنك تسديد المديونيات المستحقة على الطالب',
+                                          style: TextStyle(
+                                              fontSize: 12, color: kGray),
+                                        ),
+                                        const SizedBox(height: 20),
+
+                                        // حقل إدخال المبلغ
+                                        Row(
+                                          children: [
+                                            Expanded(
+                                              flex: 2,
+                                              child: TextField(
+                                                controller:
+                                                    customDebtAmountController,
+                                                decoration: InputDecoration(
+                                                  hintText:
+                                                      'أدخل المبلغ المراد سداده',
+                                                  prefixIcon: Icon(
+                                                      Icons.attach_money,
+                                                      color: kSuccess),
+                                                  border: OutlineInputBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            12),
                                                   ),
-                                                  keyboardType:
-                                                      TextInputType.number,
+                                                  filled: true,
+                                                  fillColor: kWhite,
+                                                  contentPadding:
+                                                      const EdgeInsets
+                                                          .symmetric(
+                                                          horizontal: 16,
+                                                          vertical: 16),
                                                 ),
+                                                keyboardType:
+                                                    TextInputType.number,
                                               ),
-                                              const SizedBox(width: 8),
-                                              ElevatedButton(
+                                            ),
+                                            const SizedBox(width: 16),
+                                            Expanded(
+                                              child: ElevatedButton.icon(
                                                 onPressed: () {
-                                                  final payVal = double.tryParse(
-                                                          quickSettleController
+                                                  final amount = double.tryParse(
+                                                          customDebtAmountController
                                                               .text) ??
                                                       0.0;
-                                                  if (payVal <= 0) return;
-                                                  setState(() {
-                                                    double runningPayment =
-                                                        payVal;
-                                                    final studentDebts =
-                                                        _attendance
-                                                            .where((a) =>
-                                                                a.studentId ==
-                                                                    student
-                                                                        .id &&
-                                                                a.status ==
-                                                                    'debt')
-                                                            .toList();
-                                                    for (var debtRec
-                                                        in studentDebts) {
-                                                      if (runningPayment <= 0)
-                                                        break;
-                                                      if (runningPayment >=
-                                                          debtRec.debt) {
-                                                        runningPayment -=
-                                                            debtRec.debt;
-                                                        debtRec.debt = 0.0;
-                                                        debtRec.status =
-                                                            'present';
-                                                      } else {
-                                                        debtRec.debt -=
-                                                            runningPayment;
-                                                        runningPayment = 0.0;
-                                                      }
+                                                  if (amount <= 0) {
+                                                    _showSuccessSnackBar(
+                                                        'يرجى إدخال مبلغ صحيح');
+                                                    return;
+                                                  }
+
+                                                  double remainingDebt = amount;
+
+                                                  // سداد المديونيات من الحصص أولاً
+                                                  for (var record in debtRecords
+                                                      .where((r) =>
+                                                          r.status == 'debt')
+                                                      .toList()) {
+                                                    if (remainingDebt <= 0)
+                                                      break;
+
+                                                    if (remainingDebt >=
+                                                        record.debt) {
+                                                      remainingDebt -=
+                                                          record.debt;
+                                                      record.debt = 0;
+                                                      record.status = 'paid';
+                                                    } else {
+                                                      record.debt -=
+                                                          remainingDebt;
+                                                      remainingDebt = 0;
                                                     }
-                                                  });
+                                                  }
+
+                                                  // ثم سداد المديونيات الخارجية
+                                                  for (var record
+                                                      in customDebtRecords
+                                                          .where((r) =>
+                                                              r.status ==
+                                                              'debt')
+                                                          .toList()) {
+                                                    if (remainingDebt <= 0)
+                                                      break;
+
+                                                    if (remainingDebt >=
+                                                        record.debt) {
+                                                      remainingDebt -=
+                                                          record.debt;
+                                                      record.debt = 0;
+                                                      record.status = 'paid';
+                                                    } else {
+                                                      record.debt -=
+                                                          remainingDebt;
+                                                      remainingDebt = 0;
+                                                    }
+                                                  }
+
                                                   _saveStateToPrefs();
-                                                  quickSettleController.clear();
+                                                  customDebtAmountController
+                                                      .clear();
                                                   setProfileState(() {});
                                                   renderStudents();
                                                   refreshDashboardStats();
+
                                                   _showSuccessSnackBar(
-                                                      'تم سداد المبلغ بنجاح');
+                                                      'تم تسديد مبلغ ${amount.toStringAsFixed(0)} ج.م بنجاح');
                                                 },
+                                                icon: const Icon(
+                                                    Icons.check_circle,
+                                                    size: 20),
+                                                label: const Text('تسديد',
+                                                    style: TextStyle(
+                                                        fontSize: 14)),
                                                 style: ElevatedButton.styleFrom(
-                                                    backgroundColor: kSuccess,
-                                                    padding: const EdgeInsets
-                                                        .symmetric(
-                                                        horizontal: 16,
-                                                        vertical: 10)),
-                                                child: const Text('سداد'),
+                                                  backgroundColor: kSuccess,
+                                                  foregroundColor: kWhite,
+                                                  padding: const EdgeInsets
+                                                      .symmetric(vertical: 16),
+                                                  shape: RoundedRectangleBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            12),
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(height: 24),
+
+                                  // قسم الحضور والمديونيات جنب بعض
+                                  Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      // قسم سجل الحضور والغياب
+                                      Expanded(
+                                        child: Container(
+                                          decoration: BoxDecoration(
+                                            color: kPrimary.withOpacity(0.05),
+                                            borderRadius:
+                                                BorderRadius.circular(16),
+                                          ),
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Padding(
+                                                padding:
+                                                    const EdgeInsets.all(16),
+                                                child: Row(
+                                                  children: [
+                                                    Container(
+                                                      padding:
+                                                          const EdgeInsets.all(
+                                                              8),
+                                                      decoration: BoxDecoration(
+                                                        color: kPrimary
+                                                            .withOpacity(0.2),
+                                                        borderRadius:
+                                                            BorderRadius
+                                                                .circular(12),
+                                                      ),
+                                                      child: const Icon(
+                                                          Icons.fact_check,
+                                                          color: kPrimary,
+                                                          size: 20),
+                                                    ),
+                                                    const SizedBox(width: 12),
+                                                    const Text(
+                                                        'سجل الحضور والغياب',
+                                                        style: TextStyle(
+                                                            fontWeight:
+                                                                FontWeight.bold,
+                                                            fontSize: 14,
+                                                            color: kDark)),
+                                                    const Spacer(),
+                                                    Container(
+                                                      padding: const EdgeInsets
+                                                          .symmetric(
+                                                          horizontal: 10,
+                                                          vertical: 4),
+                                                      decoration: BoxDecoration(
+                                                        color: kPrimary
+                                                            .withOpacity(0.1),
+                                                        borderRadius:
+                                                            BorderRadius
+                                                                .circular(20),
+                                                      ),
+                                                      child: Text(
+                                                          'الإجمالي: ${attendanceRecords.length}',
+                                                          style: const TextStyle(
+                                                              fontSize: 11,
+                                                              color: kPrimary)),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                              Container(
+                                                constraints:
+                                                    const BoxConstraints(
+                                                        maxHeight: 350),
+                                                child: attendanceRecords.isEmpty
+                                                    ? const Center(
+                                                        child: Padding(
+                                                          padding:
+                                                              EdgeInsets.all(
+                                                                  40),
+                                                          child: Column(
+                                                            children: [
+                                                              Icon(Icons.coffee,
+                                                                  size: 48,
+                                                                  color: kGray),
+                                                              SizedBox(
+                                                                  height: 12),
+                                                              Text(
+                                                                  'لا توجد سجلات حضور',
+                                                                  style: TextStyle(
+                                                                      color:
+                                                                          kGray)),
+                                                            ],
+                                                          ),
+                                                        ),
+                                                      )
+                                                    : ListView.separated(
+                                                        padding:
+                                                            const EdgeInsets
+                                                                .only(
+                                                                bottom: 8),
+                                                        itemCount:
+                                                            attendanceRecords
+                                                                .length,
+                                                        separatorBuilder:
+                                                            (_, __) => Divider(
+                                                                height: 1,
+                                                                color: kGray
+                                                                    .withOpacity(
+                                                                        0.1)),
+                                                        itemBuilder:
+                                                            (context, idx) {
+                                                          final rec =
+                                                              attendanceRecords[
+                                                                  idx];
+                                                          final session = _sessions.firstWhere(
+                                                              (s) =>
+                                                                  s.id ==
+                                                                  rec.sessionId,
+                                                              orElse: () => Session(
+                                                                  id: '',
+                                                                  name:
+                                                                      'حصة محذوفة',
+                                                                  teacherId: '',
+                                                                  day: '',
+                                                                  time: '',
+                                                                  grade: '',
+                                                                  price: 0));
+                                                          return Container(
+                                                            padding:
+                                                                const EdgeInsets
+                                                                    .all(12),
+                                                            child: Row(
+                                                              children: [
+                                                                Container(
+                                                                  width: 80,
+                                                                  padding:
+                                                                      const EdgeInsets
+                                                                          .all(
+                                                                          6),
+                                                                  decoration:
+                                                                      BoxDecoration(
+                                                                    color: kGray
+                                                                        .withOpacity(
+                                                                            0.1),
+                                                                    borderRadius:
+                                                                        BorderRadius
+                                                                            .circular(8),
+                                                                  ),
+                                                                  child: Text(
+                                                                      rec.date,
+                                                                      textAlign:
+                                                                          TextAlign
+                                                                              .center,
+                                                                      style: const TextStyle(
+                                                                          fontFamily:
+                                                                              'Courier',
+                                                                          fontSize:
+                                                                              10,
+                                                                          fontWeight:
+                                                                              FontWeight.w500)),
+                                                                ),
+                                                                const SizedBox(
+                                                                    width: 12),
+                                                                Expanded(
+                                                                  child: Column(
+                                                                    crossAxisAlignment:
+                                                                        CrossAxisAlignment
+                                                                            .start,
+                                                                    children: [
+                                                                      Text(
+                                                                          session
+                                                                              .name,
+                                                                          style: const TextStyle(
+                                                                              fontWeight: FontWeight.bold,
+                                                                              fontSize: 12),
+                                                                          overflow: TextOverflow.ellipsis),
+                                                                      const SizedBox(
+                                                                          height:
+                                                                              2),
+                                                                      Text(
+                                                                          'الصف: ${session.grade}',
+                                                                          style: const TextStyle(
+                                                                              fontSize: 10,
+                                                                              color: kGray)),
+                                                                    ],
+                                                                  ),
+                                                                ),
+                                                                _buildStatusBadge(
+                                                                    rec.status),
+                                                              ],
+                                                            ),
+                                                          );
+                                                        },
+                                                      ),
                                               ),
                                             ],
                                           ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 16),
-                                  Expanded(
-                                    flex: 2,
-                                    child: Container(
-                                      padding: const EdgeInsets.all(16),
-                                      decoration: BoxDecoration(
-                                        color: kWarning.withOpacity(0.1),
-                                        borderRadius: BorderRadius.circular(16),
-                                        border: Border.all(
-                                            color: kWarning.withOpacity(0.2)),
-                                      ),
-                                      child: Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          const Row(
-                                            children: [
-                                              Icon(Icons.add_circle_outline,
-                                                  color: kWarning, size: 24),
-                                              SizedBox(width: 8),
-                                              Text('مديونية جديدة',
-                                                  style: TextStyle(
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                      fontSize: 13,
-                                                      color: kWarning)),
-                                            ],
-                                          ),
-                                          Expanded(
-                                            child: Row(
-                                              children: [
-                                                Expanded(
-                                                  child: TextField(
-                                                    controller:
-                                                        customDebtReasonController,
-                                                    decoration:
-                                                        const InputDecoration(
-                                                      hintText: 'البيان',
-                                                      contentPadding:
-                                                          EdgeInsets.all(8),
-                                                      border:
-                                                          OutlineInputBorder(),
-                                                      isDense: true,
-                                                    ),
-                                                    style: const TextStyle(
-                                                        fontSize: 12),
-                                                  ),
-                                                ),
-                                                const SizedBox(width: 8),
-                                                SizedBox(
-                                                  width: 80,
-                                                  height: 42,
-                                                  child: TextField(
-                                                    controller:
-                                                        customDebtAmountController,
-                                                    decoration:
-                                                        const InputDecoration(
-                                                      hintText: 'المبلغ',
-                                                      contentPadding:
-                                                          EdgeInsets.all(8),
-                                                      border:
-                                                          OutlineInputBorder(),
-                                                      isDense: true,
-                                                    ),
-                                                    keyboardType:
-                                                        TextInputType.number,
-                                                  ),
-                                                ),
-                                                const SizedBox(width: 8),
-                                                ElevatedButton(
-                                                  onPressed: () {
-                                                    final reason =
-                                                        customDebtReasonController
-                                                            .text
-                                                            .trim();
-                                                    final amount = double.tryParse(
-                                                            customDebtAmountController
-                                                                .text) ??
-                                                        0.0;
-                                                    if (reason.isEmpty ||
-                                                        amount <= 0) return;
-                                                    setState(() {
-                                                      _attendance
-                                                          .add(AttendanceRecord(
-                                                        date:
-                                                            _getTodayDateOnlyString(),
-                                                        sessionId: 'custom',
-                                                        studentId: student.id,
-                                                        status: 'debt',
-                                                        debt: amount,
-                                                        customReason: reason,
-                                                      ));
-                                                    });
-                                                    _saveStateToPrefs();
-                                                    customDebtReasonController
-                                                        .clear();
-                                                    customDebtAmountController
-                                                        .clear();
-                                                    setProfileState(() {});
-                                                    renderStudents();
-                                                    refreshDashboardStats();
-                                                    _showSuccessSnackBar(
-                                                        'تم إضافة المديونية بنجاح');
-                                                  },
-                                                  style:
-                                                      ElevatedButton.styleFrom(
-                                                          backgroundColor:
-                                                              kWarning,
-                                                          padding:
-                                                              const EdgeInsets
-                                                                  .symmetric(
-                                                                  horizontal:
-                                                                      12,
-                                                                  vertical:
-                                                                      10)),
-                                                  child: const Text('إضافة'),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 24),
-                              const Text('سجل الحضور والمديونيات',
-                                  style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 14)),
-                              const SizedBox(height: 12),
-                              Container(
-                                height: 250,
-                                decoration: BoxDecoration(
-                                  border:
-                                      Border.all(color: kGray.withOpacity(0.2)),
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                                child: studentAttendanceRecords.isEmpty
-                                    ? Center(
-                                        child: Column(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.center,
-                                          children: [
-                                            Icon(Icons.history,
-                                                size: 48,
-                                                color: kGray.withOpacity(0.5)),
-                                            const SizedBox(height: 12),
-                                            Text('لا توجد سجلات سابقة',
-                                                style: TextStyle(color: kGray)),
-                                          ],
                                         ),
-                                      )
-                                    : ListView.separated(
-                                        itemCount:
-                                            studentAttendanceRecords.length,
-                                        separatorBuilder: (_, __) => Divider(
-                                            height: 1,
-                                            color: kGray.withOpacity(0.1)),
-                                        itemBuilder: (context, idx) {
-                                          final rec =
-                                              studentAttendanceRecords[idx];
-                                          String detailName = rec.sessionId ==
-                                                  'custom'
-                                              ? "📌 مديونية: ${rec.customReason}"
-                                              : "📚 حصة: ${_sessions.firstWhere((s) => s.id == rec.sessionId, orElse: () => Session(id: '', name: 'محذوفة', teacherId: '', day: '', time: '', grade: '', price: 0)).name}";
-                                          final partialPayController =
-                                              TextEditingController();
-                                          return Container(
-                                            padding: const EdgeInsets.symmetric(
-                                                horizontal: 16, vertical: 12),
-                                            child: Row(
-                                              mainAxisAlignment:
-                                                  MainAxisAlignment
-                                                      .spaceBetween,
-                                              children: [
-                                                Container(
-                                                  padding: const EdgeInsets
-                                                      .symmetric(
-                                                      horizontal: 8,
-                                                      vertical: 4),
-                                                  decoration: BoxDecoration(
-                                                    color:
-                                                        kGray.withOpacity(0.1),
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            8),
-                                                  ),
-                                                  child: Text(rec.date,
-                                                      style: const TextStyle(
-                                                          fontFamily: 'Courier',
-                                                          fontSize: 11)),
+                                      ),
+                                      const SizedBox(width: 16),
+
+                                      // قسم المديونيات
+                                      Expanded(
+                                        child: Container(
+                                          decoration: BoxDecoration(
+                                            color: kWarning.withOpacity(0.05),
+                                            borderRadius:
+                                                BorderRadius.circular(16),
+                                            border: Border.all(
+                                                color:
+                                                    kWarning.withOpacity(0.2)),
+                                          ),
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Padding(
+                                                padding:
+                                                    const EdgeInsets.all(16),
+                                                child: Row(
+                                                  children: [
+                                                    Container(
+                                                      padding:
+                                                          const EdgeInsets.all(
+                                                              8),
+                                                      decoration: BoxDecoration(
+                                                        color: kWarning
+                                                            .withOpacity(0.2),
+                                                        borderRadius:
+                                                            BorderRadius
+                                                                .circular(12),
+                                                      ),
+                                                      child: const Icon(
+                                                          Icons.monetization_on,
+                                                          color: kWarning,
+                                                          size: 20),
+                                                    ),
+                                                    const SizedBox(width: 12),
+                                                    const Text('سجل المديونيات',
+                                                        style: TextStyle(
+                                                            fontWeight:
+                                                                FontWeight.bold,
+                                                            fontSize: 14,
+                                                            color: kDark)),
+                                                    const Spacer(),
+                                                    Container(
+                                                      padding: const EdgeInsets
+                                                          .symmetric(
+                                                          horizontal: 10,
+                                                          vertical: 4),
+                                                      decoration: BoxDecoration(
+                                                        color: kWarning
+                                                            .withOpacity(0.1),
+                                                        borderRadius:
+                                                            BorderRadius
+                                                                .circular(20),
+                                                      ),
+                                                      child: Text(
+                                                          'غير المسددة: ${debtRecords.length + customDebtRecords.length}',
+                                                          style: const TextStyle(
+                                                              fontSize: 10,
+                                                              color: kWarning)),
+                                                    ),
+                                                  ],
                                                 ),
-                                                Expanded(
-                                                  child: Padding(
+                                              ),
+
+                                              // عرض المديونيات غير المسددة من الحصص
+                                              if (debtRecords.isNotEmpty) ...[
+                                                const Padding(
+                                                  padding: EdgeInsets.symmetric(
+                                                      horizontal: 16,
+                                                      vertical: 8),
+                                                  child: Text('مديونيات الحصص',
+                                                      style: TextStyle(
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                          fontSize: 12,
+                                                          color: kWarning)),
+                                                ),
+                                                Container(
+                                                  constraints:
+                                                      const BoxConstraints(
+                                                          maxHeight: 200),
+                                                  child: ListView.separated(
                                                     padding: const EdgeInsets
                                                         .symmetric(
-                                                        horizontal: 12),
-                                                    child: Text(detailName,
-                                                        style: const TextStyle(
-                                                            fontSize: 12,
-                                                            fontWeight:
-                                                                FontWeight
-                                                                    .w500)),
+                                                        horizontal: 8),
+                                                    itemCount:
+                                                        debtRecords.length,
+                                                    separatorBuilder: (_, __) =>
+                                                        Divider(
+                                                            height: 1,
+                                                            color: kGray
+                                                                .withOpacity(
+                                                                    0.1)),
+                                                    itemBuilder:
+                                                        (context, idx) {
+                                                      final rec =
+                                                          debtRecords[idx];
+                                                      final session =
+                                                          _sessions.firstWhere(
+                                                              (s) =>
+                                                                  s.id ==
+                                                                  rec.sessionId,
+                                                              orElse: () => Session(
+                                                                  id: '',
+                                                                  name:
+                                                                      'حصة محذوفة',
+                                                                  teacherId: '',
+                                                                  day: '',
+                                                                  time: '',
+                                                                  grade: '',
+                                                                  price: 0));
+                                                      return Container(
+                                                        padding:
+                                                            const EdgeInsets
+                                                                .all(12),
+                                                        child: Column(
+                                                          children: [
+                                                            Row(
+                                                              children: [
+                                                                Container(
+                                                                  width: 80,
+                                                                  padding:
+                                                                      const EdgeInsets
+                                                                          .all(
+                                                                          6),
+                                                                  decoration:
+                                                                      BoxDecoration(
+                                                                    color: kGray
+                                                                        .withOpacity(
+                                                                            0.1),
+                                                                    borderRadius:
+                                                                        BorderRadius
+                                                                            .circular(8),
+                                                                  ),
+                                                                  child: Text(
+                                                                      rec.date,
+                                                                      textAlign:
+                                                                          TextAlign
+                                                                              .center,
+                                                                      style: const TextStyle(
+                                                                          fontFamily:
+                                                                              'Courier',
+                                                                          fontSize:
+                                                                              10,
+                                                                          fontWeight:
+                                                                              FontWeight.w500)),
+                                                                ),
+                                                                const SizedBox(
+                                                                    width: 12),
+                                                                Expanded(
+                                                                  child: Text(
+                                                                      session
+                                                                          .name,
+                                                                      style: const TextStyle(
+                                                                          fontWeight: FontWeight
+                                                                              .w500,
+                                                                          fontSize:
+                                                                              12),
+                                                                      overflow:
+                                                                          TextOverflow
+                                                                              .ellipsis),
+                                                                ),
+                                                                Container(
+                                                                  padding: const EdgeInsets
+                                                                      .symmetric(
+                                                                      horizontal:
+                                                                          10,
+                                                                      vertical:
+                                                                          4),
+                                                                  decoration:
+                                                                      BoxDecoration(
+                                                                    color: kWarning
+                                                                        .withOpacity(
+                                                                            0.1),
+                                                                    borderRadius:
+                                                                        BorderRadius.circular(
+                                                                            20),
+                                                                  ),
+                                                                  child: Text(
+                                                                      '${rec.debt} ج.م',
+                                                                      style: const TextStyle(
+                                                                          fontSize:
+                                                                              11,
+                                                                          fontWeight: FontWeight
+                                                                              .bold,
+                                                                          color:
+                                                                              kWarning)),
+                                                                ),
+                                                              ],
+                                                            ),
+                                                          ],
+                                                        ),
+                                                      );
+                                                    },
                                                   ),
                                                 ),
-                                                _buildStatusBadge(rec.status),
-                                                const SizedBox(width: 12),
-                                                if (rec.status == 'debt')
-                                                  Row(
-                                                    children: [
-                                                      Text('${rec.debt} ج.م',
-                                                          style:
-                                                              const TextStyle(
-                                                                  fontWeight:
-                                                                      FontWeight
-                                                                          .bold,
-                                                                  color:
-                                                                      kDanger)),
-                                                      const SizedBox(width: 8),
-                                                      SizedBox(
-                                                        width: 70,
-                                                        height: 36,
-                                                        child: TextField(
-                                                          controller:
-                                                              partialPayController,
-                                                          decoration:
-                                                              InputDecoration(
-                                                            border: OutlineInputBorder(
+                                              ],
+
+                                              // عرض المديونيات الخارجية غير المسددة
+                                              if (customDebtRecords
+                                                  .isNotEmpty) ...[
+                                                const Padding(
+                                                  padding: EdgeInsets.symmetric(
+                                                      horizontal: 16,
+                                                      vertical: 8),
+                                                  child: Text('مديونيات خارجية',
+                                                      style: TextStyle(
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                          fontSize: 12,
+                                                          color: kWarning)),
+                                                ),
+                                                Container(
+                                                  constraints:
+                                                      const BoxConstraints(
+                                                          maxHeight: 200),
+                                                  child: ListView.separated(
+                                                    padding: const EdgeInsets
+                                                        .symmetric(
+                                                        horizontal: 8),
+                                                    itemCount: customDebtRecords
+                                                        .length,
+                                                    separatorBuilder: (_, __) =>
+                                                        Divider(
+                                                            height: 1,
+                                                            color: kGray
+                                                                .withOpacity(
+                                                                    0.1)),
+                                                    itemBuilder:
+                                                        (context, idx) {
+                                                      final rec =
+                                                          customDebtRecords[
+                                                              idx];
+                                                      return Container(
+                                                        padding:
+                                                            const EdgeInsets
+                                                                .all(12),
+                                                        child: Row(
+                                                          children: [
+                                                            Container(
+                                                              width: 80,
+                                                              padding:
+                                                                  const EdgeInsets
+                                                                      .all(6),
+                                                              decoration:
+                                                                  BoxDecoration(
+                                                                color: kGray
+                                                                    .withOpacity(
+                                                                        0.1),
                                                                 borderRadius:
                                                                     BorderRadius
                                                                         .circular(
-                                                                            8)),
-                                                            contentPadding:
-                                                                const EdgeInsets
-                                                                    .all(6),
-                                                            hintText: 'المبلغ',
-                                                            hintStyle:
-                                                                const TextStyle(
-                                                                    fontSize:
-                                                                        10),
-                                                          ),
-                                                          keyboardType:
-                                                              TextInputType
-                                                                  .number,
+                                                                            8),
+                                                              ),
+                                                              child: Text(rec.date,
+                                                                  textAlign:
+                                                                      TextAlign
+                                                                          .center,
+                                                                  style: const TextStyle(
+                                                                      fontFamily:
+                                                                          'Courier',
+                                                                      fontSize:
+                                                                          10,
+                                                                      fontWeight:
+                                                                          FontWeight
+                                                                              .w500)),
+                                                            ),
+                                                            const SizedBox(
+                                                                width: 12),
+                                                            Expanded(
+                                                              child: Text(
+                                                                  rec.customReason
+                                                                          .isEmpty
+                                                                      ? 'مديونية بدون بيان'
+                                                                      : rec
+                                                                          .customReason,
+                                                                  style: const TextStyle(
+                                                                      fontWeight:
+                                                                          FontWeight
+                                                                              .w500,
+                                                                      fontSize:
+                                                                          12),
+                                                                  overflow:
+                                                                      TextOverflow
+                                                                          .ellipsis),
+                                                            ),
+                                                            Container(
+                                                              padding:
+                                                                  const EdgeInsets
+                                                                      .symmetric(
+                                                                      horizontal:
+                                                                          10,
+                                                                      vertical:
+                                                                          4),
+                                                              decoration:
+                                                                  BoxDecoration(
+                                                                color: kWarning
+                                                                    .withOpacity(
+                                                                        0.1),
+                                                                borderRadius:
+                                                                    BorderRadius
+                                                                        .circular(
+                                                                            20),
+                                                              ),
+                                                              child: Text(
+                                                                  '${rec.debt} ج.م',
+                                                                  style: const TextStyle(
+                                                                      fontSize:
+                                                                          11,
+                                                                      fontWeight:
+                                                                          FontWeight
+                                                                              .bold,
+                                                                      color:
+                                                                          kWarning)),
+                                                            ),
+                                                          ],
                                                         ),
-                                                      ),
-                                                      IconButton(
-                                                        icon: const Icon(
-                                                            Icons.payment,
-                                                            size: 20,
-                                                            color: kSuccess),
-                                                        onPressed: () {
-                                                          final amt = double.tryParse(
-                                                                  partialPayController
-                                                                      .text) ??
-                                                              0.0;
-                                                          if (amt <= 0) return;
-                                                          setState(() {
-                                                            if (amt >=
-                                                                rec.debt) {
-                                                              rec.debt = 0.0;
-                                                              rec.status =
-                                                                  'present';
-                                                            } else {
-                                                              rec.debt -= amt;
-                                                            }
-                                                          });
-                                                          _saveStateToPrefs();
-                                                          setProfileState(
-                                                              () {});
-                                                          renderStudents();
-                                                          refreshDashboardStats();
-                                                          _showSuccessSnackBar(
-                                                              'تم سداد المبلغ');
-                                                        },
-                                                      ),
-                                                    ],
-                                                  )
-                                                else
-                                                  const Text('-',
-                                                      style: TextStyle(
-                                                          color: kGray)),
+                                                      );
+                                                    },
+                                                  ),
+                                                ),
                                               ],
-                                            ),
-                                          );
-                                        },
+
+                                              // عرض المديونيات المسددة
+                                              if (paidRecords.isNotEmpty ||
+                                                  customPaidRecords
+                                                      .isNotEmpty) ...[
+                                                const Padding(
+                                                  padding: EdgeInsets.symmetric(
+                                                      horizontal: 16,
+                                                      vertical: 8),
+                                                  child: Text(
+                                                      'المديونيات المسددة',
+                                                      style: TextStyle(
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                          fontSize: 12,
+                                                          color: kSuccess)),
+                                                ),
+                                                Container(
+                                                  constraints:
+                                                      const BoxConstraints(
+                                                          maxHeight: 200),
+                                                  child: ListView.separated(
+                                                    padding: const EdgeInsets
+                                                        .symmetric(
+                                                        horizontal: 8),
+                                                    itemCount:
+                                                        paidRecords.length +
+                                                            customPaidRecords
+                                                                .length,
+                                                    separatorBuilder: (_, __) =>
+                                                        Divider(
+                                                            height: 1,
+                                                            color: kGray
+                                                                .withOpacity(
+                                                                    0.1)),
+                                                    itemBuilder:
+                                                        (context, idx) {
+                                                      final rec = idx <
+                                                              paidRecords.length
+                                                          ? paidRecords[idx]
+                                                          : customPaidRecords[
+                                                              idx -
+                                                                  paidRecords
+                                                                      .length];
+                                                      final session = rec
+                                                                  .sessionId !=
+                                                              'custom'
+                                                          ? _sessions.firstWhere(
+                                                              (s) =>
+                                                                  s.id ==
+                                                                  rec.sessionId,
+                                                              orElse: () => Session(
+                                                                  id: '',
+                                                                  name:
+                                                                      'حصة محذوفة',
+                                                                  teacherId: '',
+                                                                  day: '',
+                                                                  time: '',
+                                                                  grade: '',
+                                                                  price: 0))
+                                                          : null;
+                                                      return Container(
+                                                        padding:
+                                                            const EdgeInsets
+                                                                .all(12),
+                                                        child: Row(
+                                                          children: [
+                                                            Container(
+                                                              width: 80,
+                                                              padding:
+                                                                  const EdgeInsets
+                                                                      .all(6),
+                                                              decoration:
+                                                                  BoxDecoration(
+                                                                color: kGray
+                                                                    .withOpacity(
+                                                                        0.1),
+                                                                borderRadius:
+                                                                    BorderRadius
+                                                                        .circular(
+                                                                            8),
+                                                              ),
+                                                              child: Text(rec.date,
+                                                                  textAlign:
+                                                                      TextAlign
+                                                                          .center,
+                                                                  style: const TextStyle(
+                                                                      fontFamily:
+                                                                          'Courier',
+                                                                      fontSize:
+                                                                          10,
+                                                                      fontWeight:
+                                                                          FontWeight
+                                                                              .w500)),
+                                                            ),
+                                                            const SizedBox(
+                                                                width: 12),
+                                                            Expanded(
+                                                              child: Text(
+                                                                rec.sessionId ==
+                                                                        'custom'
+                                                                    ? (rec.customReason
+                                                                            .isEmpty
+                                                                        ? 'مديونية خارجية مسددة'
+                                                                        : rec
+                                                                            .customReason)
+                                                                    : (session
+                                                                            ?.name ??
+                                                                        'حصة مسددة'),
+                                                                style: const TextStyle(
+                                                                    fontWeight:
+                                                                        FontWeight
+                                                                            .w500,
+                                                                    fontSize:
+                                                                        12),
+                                                                overflow:
+                                                                    TextOverflow
+                                                                        .ellipsis,
+                                                              ),
+                                                            ),
+                                                            Container(
+                                                              padding:
+                                                                  const EdgeInsets
+                                                                      .symmetric(
+                                                                      horizontal:
+                                                                          10,
+                                                                      vertical:
+                                                                          4),
+                                                              decoration:
+                                                                  BoxDecoration(
+                                                                color: kSuccess
+                                                                    .withOpacity(
+                                                                        0.1),
+                                                                borderRadius:
+                                                                    BorderRadius
+                                                                        .circular(
+                                                                            20),
+                                                              ),
+                                                              child: Row(
+                                                                mainAxisSize:
+                                                                    MainAxisSize
+                                                                        .min,
+                                                                children: const [
+                                                                  Icon(
+                                                                      Icons
+                                                                          .check_circle,
+                                                                      size: 12,
+                                                                      color:
+                                                                          kSuccess),
+                                                                  SizedBox(
+                                                                      width: 4),
+                                                                  Text('مسددة',
+                                                                      style: TextStyle(
+                                                                          fontSize:
+                                                                              10,
+                                                                          fontWeight: FontWeight
+                                                                              .bold,
+                                                                          color:
+                                                                              kSuccess)),
+                                                                ],
+                                                              ),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                      );
+                                                    },
+                                                  ),
+                                                ),
+                                              ],
+
+                                              if (debtRecords.isEmpty &&
+                                                  customDebtRecords.isEmpty &&
+                                                  paidRecords.isEmpty &&
+                                                  customPaidRecords.isEmpty)
+                                                const Center(
+                                                  child: Padding(
+                                                    padding: EdgeInsets.all(40),
+                                                    child: Column(
+                                                      children: [
+                                                        Icon(Icons.attach_money,
+                                                            size: 48,
+                                                            color: kGray),
+                                                        SizedBox(height: 12),
+                                                        Text(
+                                                            'لا توجد مديونيات مسجلة',
+                                                            style: TextStyle(
+                                                                color: kGray)),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ),
+                                            ],
+                                          ),
+                                        ),
                                       ),
+                                    ],
+                                  ),
+                                ],
                               ),
-                            ],
+                            ),
                           ),
-                        ),
+                        ],
                       ),
-                    ],
-                  ),
+                    );
+                  },
                 ),
               );
             },
@@ -3682,6 +4449,18 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                                         fontSize: 12),
                                   ),
                                 ],
+                              ),
+                            ),
+                            InkWell(
+                              onTap: () => Navigator.pop(context),
+                              child: Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: kWhite.withOpacity(0.2),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: const Icon(Icons.close,
+                                    color: kWhite, size: 20),
                               ),
                             ),
                           ],
@@ -3869,6 +4648,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   void _openTeacherProfileDialog(Teacher teacher) {
     showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (context) {
         return Directionality(
           textDirection: TextDirection.rtl,
@@ -3944,7 +4724,18 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                                 ),
                               ],
                             ),
-                            const SizedBox(width: 8),
+                            InkWell(
+                              onTap: () => Navigator.pop(context),
+                              child: Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: kWhite.withOpacity(0.2),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: const Icon(Icons.close,
+                                    color: kWhite, size: 24),
+                              ),
+                            ),
                           ],
                         ),
                       ),
